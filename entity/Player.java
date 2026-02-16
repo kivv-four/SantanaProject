@@ -1,13 +1,18 @@
 package entity;
 
-import game.GamePanel;
-import input.KeyHandler;
 import effect.FloatingText;
 import effect.Particle;
-
+import game.GameConfig;
+import game.GamePanel;
+import input.KeyHandler;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
+import javax.imageio.ImageIO;
 
 public class Player extends Entity {
 
@@ -17,6 +22,14 @@ public class Player extends Entity {
     private int attackTimer = 0;
     public int level = 1, strength = 5, exp = 0, nextLevelExp = 50, leveledUpCounter = 0;
     private boolean moving = false;
+    private String lastHorizontalDirection = "right"; // เก็บทิศทางซ้าย/ขวาล่าสุด
+    
+    // Animation sprites
+    private final Map<String, BufferedImage[]> spriteFrames = new HashMap<>();
+    private final Map<String, BufferedImage[]> idleFrames = new HashMap<>();
+    private int animationFrameCounter = 0;
+    private final int FRAME_DURATION = 10; // 10 game frames ต่อ 1 sprite frame
+    private final int FRAMES_PER_DIRECTION = 6;
 
     public Player(GamePanel gp, KeyHandler keyH) {
         super(gp);
@@ -26,11 +39,122 @@ public class Player extends Entity {
         worldX = gp.tileSize * 25;
         worldY = gp.tileSize * 25;
         speed = 5;
-        solidArea = new Rectangle(12, 16, 24, 32);
+        // solidArea ปรับให้ครอบตัวละครพอดี (ประมาณ 50-58 pixels กว้าง-สูง)
+        solidArea = new Rectangle(7, 22, 34, 43);
         solidAreaDefaultX = solidArea.x;
         solidAreaDefaultY = solidArea.y;
         maxLife = 100;
         life = maxLife;
+        loadSprites();
+    }
+    
+    /** โหลดรูปภาพ sprite จาก folder */
+    private void loadSprites() {
+        try {
+            // ลองหลาย path ที่อาจจะเป็น
+            String[] possiblePaths = {
+                "resource/player/wizard/run/",
+                "SantanaProject/resource/player/wizard/run/",
+                "../resource/player/wizard/run/",
+                "./resource/player/wizard/run/"
+            };
+            
+            String basePath = null;
+            for (String path : possiblePaths) {
+                if (new File(path + "run_left_0.PNG").exists()) {
+                    basePath = path;
+                    break;
+                }
+            }
+            
+            if (basePath == null) {
+                System.err.println("ไม่พบโฟลเดอร์ resource/player/wizard/run/ ที่: " + new java.io.File(".").getAbsolutePath());
+                spriteFrames.put("left", null);
+                spriteFrames.put("right", null);
+                spriteFrames.put("up", null);
+                spriteFrames.put("down", null);
+                idleFrames.put("idle", null);
+                return;
+            }
+            
+            System.out.println("พบรูปภาพที่: " + basePath);
+            
+            // โหลด 6 เฟรมสำหรับเดินซ้าย
+            BufferedImage[] leftFrames = new BufferedImage[FRAMES_PER_DIRECTION];
+            for (int i = 0; i < FRAMES_PER_DIRECTION; i++) {
+                String filePath = basePath + "run_left_" + i + ".PNG";
+                leftFrames[i] = ImageIO.read(new File(filePath));
+            }
+            spriteFrames.put("left", leftFrames);
+            
+            // โหลด 6 เฟรมสำหรับเดินขวา
+            BufferedImage[] rightFrames = new BufferedImage[FRAMES_PER_DIRECTION];
+            for (int i = 0; i < FRAMES_PER_DIRECTION; i++) {
+                String filePath = basePath + "run_right_" + i + ".PNG";
+                rightFrames[i] = ImageIO.read(new File(filePath));
+            }
+            spriteFrames.put("right", rightFrames);
+            
+            // เดินขึ้นและลงใช้รูปเดียวกับซ้าย (จะถูกเปลี่ยนตาม lastHorizontalDirection)
+            spriteFrames.put("up", leftFrames);
+            spriteFrames.put("down", leftFrames);
+            
+            // โหลด idle animation
+            String idlePath = "resource/player/wizard/idle/";
+            String[] idlePossiblePaths = {
+                idlePath,
+                "SantanaProject/resource/player/wizard/idle/",
+                "../resource/player/wizard/idle/",
+                "./resource/player/wizard/idle/"
+            };
+            
+            String idleBasePath = null;
+            for (String path : idlePossiblePaths) {
+                if (new File(path + "Idle_left_0.png").exists() || new File(path + "Idle_left_0.PNG").exists()) {
+                    idleBasePath = path;
+                    break;
+                }
+            }
+            
+            if (idleBasePath != null) {
+                // โหลด idle ซ้าย
+                BufferedImage[] idleLefts = new BufferedImage[GameConfig.IDLE_FRAMES];
+                for (int i = 0; i < GameConfig.IDLE_FRAMES; i++) {
+                    String filePath = idleBasePath + "Idle_left_" + i + ".png";
+                    File file = new File(filePath);
+                    if (file.exists()) {
+                        idleLefts[i] = ImageIO.read(file);
+                    } else {
+                        idleLefts[i] = leftFrames[0]; // Fallback
+                    }
+                }
+                idleFrames.put("idle_left", idleLefts);
+                
+                // โหลด idle ขวา
+                BufferedImage[] idleRights = new BufferedImage[GameConfig.IDLE_FRAMES];
+                for (int i = 0; i < GameConfig.IDLE_FRAMES; i++) {
+                    String filePath = idleBasePath + "Idle_right_" + i + ".png";
+                    File file = new File(filePath);
+                    if (file.exists()) {
+                        idleRights[i] = ImageIO.read(file);
+                    } else {
+                        idleRights[i] = rightFrames[0]; // Fallback
+                    }
+                }
+                idleFrames.put("idle_right", idleRights);
+                
+                System.out.println("โหลด idle animation สำเร็จ!");
+            } else {
+                System.out.println("ไม่พบ idle animation, ใช้ run frame แทน");
+                idleFrames.put("idle_left", leftFrames);
+                idleFrames.put("idle_right", rightFrames);
+            }
+            
+            System.out.println("โหลดรูปภาพสำเร็จ!");
+        } catch (Exception e) {
+            System.err.println("ผิดพลาดในการโหลดรูปภาพ: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /** เพิ่ม exp; ถ้าครบ nextLevelExp จะ level up (เพิ่ม maxLife, strength, แสดง LEVEL UP) */
@@ -68,12 +192,12 @@ public class Player extends Entity {
         moving = false;
         if (keyH.upPressed && keyH.lastKey.equals("up")) { direction = "up"; moving = true; }
         else if (keyH.downPressed && keyH.lastKey.equals("down")) { direction = "down"; moving = true; }
-        else if (keyH.leftPressed && keyH.lastKey.equals("left")) { direction = "left"; moving = true; }
-        else if (keyH.rightPressed && keyH.lastKey.equals("right")) { direction = "right"; moving = true; }
+        else if (keyH.leftPressed && keyH.lastKey.equals("left")) { direction = "left"; moving = true; lastHorizontalDirection = "left"; }
+        else if (keyH.rightPressed && keyH.lastKey.equals("right")) { direction = "right"; moving = true; lastHorizontalDirection = "right"; }
         else if (keyH.upPressed) { direction = "up"; moving = true; }
         else if (keyH.downPressed) { direction = "down"; moving = true; }
-        else if (keyH.leftPressed) { direction = "left"; moving = true; }
-        else if (keyH.rightPressed) { direction = "right"; moving = true; }
+        else if (keyH.leftPressed) { direction = "left"; moving = true; lastHorizontalDirection = "left"; }
+        else if (keyH.rightPressed) { direction = "right"; moving = true; lastHorizontalDirection = "right"; }
 
         if (moving) {
             collisionOn = false;
@@ -92,6 +216,12 @@ public class Player extends Entity {
             int maxY = (gp.maxWorldRow * gp.tileSize) - gp.tileSize;
             if (worldX > maxX) worldX = maxX;
             if (worldY > maxY) worldY = maxY;
+            
+            // อัพเดต animation frame เมื่อเคลื่อนที่
+            animationFrameCounter++;
+        } else {
+            // เมื่อยืนนิ่ง - animation idle ยังไหวต่อ
+            animationFrameCounter++;
         }
 
         if (invincible) {
@@ -165,14 +295,70 @@ public class Player extends Entity {
 
     @Override
     public void draw(Graphics2D g2) {
+        // คำนวณ sprite frame ปัจจุบัน
+        int currentFrame;
         int bobY = moving ? (int) (Math.sin(gp.gameFrame * 0.2) * 3) : 0;
-        g2.setColor(Color.CYAN);
-        g2.fillRect(screenX, screenY + bobY, gp.tileSize, gp.tileSize);
-        g2.setColor(new Color(0, 0, 150));
-        if (direction.equals("up")) g2.fillRect(screenX + 10, screenY + 10 + bobY, 28, 30);
-        g2.setColor(Color.BLACK);
-        if (direction.equals("right") || direction.equals("down")) g2.fillRect(screenX + 30, screenY + 10 + bobY, 6, 6);
-        if (direction.equals("left") || direction.equals("down")) g2.fillRect(screenX + 10, screenY + 10 + bobY, 6, 6);
+        
+        // เลือกประเภท animation
+        BufferedImage[] frames;
+        double scale = GameConfig.CHARACTER_SCALE; // default scale
+        
+        if (!moving) {
+            // ยืนนิ่ง - ใช้ idle animation ตามทิศทาง (วิ่ง slow)
+            int idleFrameDuration = FRAME_DURATION * 2; // idle ช้า 2 เท่า
+            currentFrame = (animationFrameCounter / idleFrameDuration) % GameConfig.IDLE_FRAMES;
+            if (lastHorizontalDirection.equals("left")) {
+                frames = idleFrames.get("idle_left");
+            } else {
+                frames = idleFrames.get("idle_right");
+            }
+            scale = GameConfig.CHARACTER_SCALE * GameConfig.IDLE_SCALE_MULTIPLIER;
+        } else {
+            // เดิน - animation เร็ว
+            currentFrame = (animationFrameCounter / FRAME_DURATION) % FRAMES_PER_DIRECTION;
+            if (direction.equals("up") || direction.equals("down")) {
+                // เดินขึ้น/ลง - ใช้รูปตาม lastHorizontalDirection
+                frames = spriteFrames.get(lastHorizontalDirection);
+            } else {
+                // เดินซ้าย/ขวา
+                frames = spriteFrames.get(direction);
+            }
+        }
+        
+        if (frames != null && frames[currentFrame] != null) {
+            // วาดรูปภาพ sprite - bottom align ให้เท่ากันเสมอ
+            int runScaledSize = (int) (gp.tileSize * GameConfig.CHARACTER_SCALE);
+            int idleScaledSize = (int) (gp.tileSize * GameConfig.CHARACTER_SCALE * GameConfig.IDLE_SCALE_MULTIPLIER);
+            
+            int scaledSize = moving ? runScaledSize : idleScaledSize;
+            int offsetX = (gp.tileSize - scaledSize) / 2;
+            
+            // Calculate base Y (bottom align point) - ใช้ run size เป็นอ้างอิง
+            int baseY = screenY + (gp.tileSize - runScaledSize) / 2 + runScaledSize;
+            // Draw Y = base - ความสูงของ sprite ที่จะวาด
+            int drawY = baseY - scaledSize + bobY;
+            
+            g2.drawImage(frames[currentFrame], screenX + offsetX, drawY, scaledSize, scaledSize, null);
+        } else {
+            // Fallback: วาดเป็นสี่เหลี่ยมถ้าโหลดรูปไม่ได้
+            g2.setColor(Color.CYAN);
+            g2.fillRect(screenX, screenY + bobY, gp.tileSize, gp.tileSize);
+            g2.setColor(new Color(0, 0, 150));
+            if (direction.equals("up")) g2.fillRect(screenX + 10, screenY + 10 + bobY, 28, 30);
+            g2.setColor(Color.BLACK);
+            if (direction.equals("right") || direction.equals("down")) g2.fillRect(screenX + 30, screenY + 10 + bobY, 6, 6);
+            if (direction.equals("left") || direction.equals("down")) g2.fillRect(screenX + 10, screenY + 10 + bobY, 6, 6);
+        }
+        
+        // DEBUG: วาด hitbox
+        g2.setColor(new Color(0, 255, 0, 100)); // สีเขียวโปร่งใส
+        int hitboxScreenX = screenX + solidArea.x;
+        int hitboxScreenY = screenY + solidArea.y + bobY;
+        g2.fillRect(hitboxScreenX, hitboxScreenY, solidArea.width, solidArea.height);
+        g2.setColor(Color.GREEN);
+        g2.setStroke(new BasicStroke(2));
+        g2.drawRect(hitboxScreenX, hitboxScreenY, solidArea.width, solidArea.height);
+        
         if (attacking) drawSword(g2, bobY);
     }
 

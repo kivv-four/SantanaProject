@@ -24,4 +24,9 @@ public final class GameConfig {
     // Spawn
     public static final int SPAWN_MONSTER_COUNT = 15;
     public static final int SPAWN_MARGIN = 2;
+    
+    // Character
+    public static final double CHARACTER_SCALE = 1.7; // ขยายตัวละครให้เท่า monster
+    public static final double IDLE_SCALE_MULTIPLIER = 0.55; // idle ต้องขยาย 0.5 ของ CHARACTER_SCALE เพื่อดูเท่า run
+    public static final int IDLE_FRAMES = 4; // จำนวน frames ของ idle animation
 }
