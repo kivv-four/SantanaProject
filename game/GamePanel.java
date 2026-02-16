@@ -1,18 +1,17 @@
 package game;
 
+import effect.FloatingText;
+import effect.Particle;
 import entity.Entity;
 import entity.GreenSlime;
 import entity.Player;
 import input.KeyHandler;
-import world.CollisionChecker;
-import world.TileManager;
-import effect.FloatingText;
-import effect.Particle;
-
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Iterator;
 import javax.swing.*;
+import world.CollisionChecker;
+import world.TileManager;
 
 public class GamePanel extends JPanel implements Runnable {
 
@@ -38,10 +37,15 @@ public class GamePanel extends JPanel implements Runnable {
     private Thread gameThread;
 
     // Entities & effects
-    public Player player = new Player(this, keyH);
+    public Player player;
     public ArrayList<Entity> monsters = new ArrayList<>();
     public ArrayList<Particle> particles = new ArrayList<>();
     public ArrayList<FloatingText> floatingTexts = new ArrayList<>();
+    
+    // Character selection
+    private CharacterConfig selectedCharacterConfig;
+    private boolean gameStarted = false;
+    private JFrame gameWindow;
 
     public GamePanel() {
         setPreferredSize(new Dimension(screenWidth, screenHeight));
@@ -49,7 +53,6 @@ public class GamePanel extends JPanel implements Runnable {
         setDoubleBuffered(true);
         addKeyListener(keyH);
         setFocusable(true);
-        spawnMonsters();
     }
 
     /** สร้างมอนสเตอร์สุ่มบนแมพ (เว้นขอบ) จนครบ SPAWN_MONSTER_COUNT บน tile ที่ไม่ชนได้ */
@@ -75,7 +78,7 @@ public class GamePanel extends JPanel implements Runnable {
 
     /** รีเซ็ตผู้เล่น แมพ มอนสเตอร์ เอฟเฟกต์ และสถานะเกม; ใช้เมื่อกด R ตอน Game Over */
     public void resetGame() {
-        player = new Player(this, keyH);
+        player = new Player(this, keyH, selectedCharacterConfig);
         monsters.clear();
         particles.clear();
         floatingTexts.clear();
@@ -83,6 +86,30 @@ public class GamePanel extends JPanel implements Runnable {
         gameOver = false;
         gameFrame = 0;
         keyH.restartPressed = false;
+    }
+    
+    /** เรียกโดย CharacterSelectionPanel เมื่อผู้เล่นเลือกตัวละคร */
+    public void startGameWithCharacter(CharacterConfig config) {
+        System.out.println("Starting game with character: " + config.name);
+        selectedCharacterConfig = config;
+        
+        // สร้าง player ด้วย config ที่เลือก
+        player = new Player(this, keyH, config);
+        spawnMonsters();
+        gameStarted = true;
+        
+        // สร้าง game window
+        gameWindow = new JFrame("Java RPG V3: " + config.name);
+        gameWindow.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        gameWindow.setResizable(false);
+        gameWindow.add(this);
+        gameWindow.pack();
+        gameWindow.setLocationRelativeTo(null);
+        gameWindow.setVisible(true);
+        
+        // เริ่มเกม
+        startGameThread();
+        System.out.println("Game started: " + gameStarted);
     }
 
     /** เริ่มเกมลูปใน thread แยก */
@@ -148,6 +175,12 @@ public class GamePanel extends JPanel implements Runnable {
     @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
+        
+        // ถ้ายังไม่เริ่มเกม ให้แสดง character selection panel เท่านั้น
+        if (!gameStarted) {
+            return;
+        }
+        
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 

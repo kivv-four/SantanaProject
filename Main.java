@@ -1,22 +1,19 @@
+import game.CharacterSelectionWindow;
 import game.GamePanel;
-import javax.swing.JFrame;
 
 /**
- * จุดเข้าเกม: สร้าง JFrame และ GamePanel แล้วเริ่มเกมลูป.
+ * จุดเข้าเกม: สร้าง CharacterSelectionWindow ให้เลือกตัวละคร
  */
 public class Main {
 
     public static void main(String[] args) {
-        JFrame window = new JFrame("Java RPG V3: Smooth Animations");
-        window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        window.setResizable(false);
-
+        // สร้าง GamePanel สำหรับเกมหลัก (ยังไม่เริ่มเลย)
         GamePanel gamePanel = new GamePanel();
-        window.add(gamePanel);
-        window.pack();
-        window.setLocationRelativeTo(null);
-        window.setVisible(true);
-
-        gamePanel.startGameThread();
+        
+        // สร้าง Character Selection Window
+        new CharacterSelectionWindow(gamePanel);
+        
+        // เมื่อเลือกตัวละคร จะเรียก startGameWithCharacter() ของ gamePanel
+        // และสร้าง main game window
     }
 }

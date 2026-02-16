@@ -2,7 +2,7 @@ package entity;
 
 import effect.FloatingText;
 import effect.Particle;
-import game.GameConfig;
+import game.CharacterConfig;
 import game.GamePanel;
 import input.KeyHandler;
 import java.awt.*;
@@ -29,21 +29,25 @@ public class Player extends Entity {
     private final Map<String, BufferedImage[]> idleFrames = new HashMap<>();
     private int animationFrameCounter = 0;
     private final int FRAME_DURATION = 10; // 10 game frames ต่อ 1 sprite frame
-    private final int FRAMES_PER_DIRECTION = 6;
+    private CharacterConfig characterConfig;
 
     public Player(GamePanel gp, KeyHandler keyH) {
+        this(gp, keyH, CharacterConfig.WIZARD);
+    }
+    
+    public Player(GamePanel gp, KeyHandler keyH, CharacterConfig config) {
         super(gp);
         this.keyH = keyH;
+        this.characterConfig = config;
         screenX = gp.screenWidth / 2 - (gp.tileSize / 2);
         screenY = gp.screenHeight / 2 - (gp.tileSize / 2);
         worldX = gp.tileSize * 25;
         worldY = gp.tileSize * 25;
-        speed = 5;
-        // solidArea ปรับให้ครอบตัวละครพอดี (ประมาณ 50-58 pixels กว้าง-สูง)
-        solidArea = new Rectangle(7, 22, 34, 43);
+        speed = config.speed;
+        solidArea = new Rectangle(config.solidArea.x, config.solidArea.y, config.solidArea.width, config.solidArea.height);
         solidAreaDefaultX = solidArea.x;
         solidAreaDefaultY = solidArea.y;
-        maxLife = 100;
+        maxLife = config.maxLife;
         life = maxLife;
         loadSprites();
     }
@@ -53,22 +57,22 @@ public class Player extends Entity {
         try {
             // ลองหลาย path ที่อาจจะเป็น
             String[] possiblePaths = {
-                "resource/player/wizard/run/",
-                "SantanaProject/resource/player/wizard/run/",
-                "../resource/player/wizard/run/",
-                "./resource/player/wizard/run/"
+                characterConfig.spritePath + "run/",
+                "SantanaProject/" + characterConfig.spritePath + "run/",
+                "../" + characterConfig.spritePath + "run/",
+                "./" + characterConfig.spritePath + "run/"
             };
             
             String basePath = null;
             for (String path : possiblePaths) {
-                if (new File(path + "run_left_0.PNG").exists()) {
+                if (new File(path + "run_left_0.png").exists() || new File(path + "run_left_0.PNG").exists()) {
                     basePath = path;
                     break;
                 }
             }
             
             if (basePath == null) {
-                System.err.println("ไม่พบโฟลเดอร์ resource/player/wizard/run/ ที่: " + new java.io.File(".").getAbsolutePath());
+                System.err.println("ไม่พบโฟลเดอร์ " + characterConfig.spritePath + "run/ ที่: " + new java.io.File(".").getAbsolutePath());
                 spriteFrames.put("left", null);
                 spriteFrames.put("right", null);
                 spriteFrames.put("up", null);
@@ -77,35 +81,42 @@ public class Player extends Entity {
                 return;
             }
             
-            System.out.println("พบรูปภาพที่: " + basePath);
+            System.out.println("พบรูปภาพของ " + characterConfig.name + " ที่: " + basePath);
             
-            // โหลด 6 เฟรมสำหรับเดินซ้าย
-            BufferedImage[] leftFrames = new BufferedImage[FRAMES_PER_DIRECTION];
-            for (int i = 0; i < FRAMES_PER_DIRECTION; i++) {
-                String filePath = basePath + "run_left_" + i + ".PNG";
+            // โหลด run frames ตามจำนวนใน config
+            BufferedImage[] leftFrames = new BufferedImage[characterConfig.runFrames];
+            for (int i = 0; i < characterConfig.runFrames; i++) {
+                String filePath = basePath + "run_left_" + i + ".png";
+                File file = new File(filePath);
+                if (!file.exists()) {
+                    filePath = basePath + "run_left_" + i + ".PNG";
+                }
                 leftFrames[i] = ImageIO.read(new File(filePath));
             }
             spriteFrames.put("left", leftFrames);
             
-            // โหลด 6 เฟรมสำหรับเดินขวา
-            BufferedImage[] rightFrames = new BufferedImage[FRAMES_PER_DIRECTION];
-            for (int i = 0; i < FRAMES_PER_DIRECTION; i++) {
-                String filePath = basePath + "run_right_" + i + ".PNG";
+            // โหลด run frames ขวา
+            BufferedImage[] rightFrames = new BufferedImage[characterConfig.runFrames];
+            for (int i = 0; i < characterConfig.runFrames; i++) {
+                String filePath = basePath + "run_right_" + i + ".png";
+                File file = new File(filePath);
+                if (!file.exists()) {
+                    filePath = basePath + "run_right_" + i + ".PNG";
+                }
                 rightFrames[i] = ImageIO.read(new File(filePath));
             }
             spriteFrames.put("right", rightFrames);
             
-            // เดินขึ้นและลงใช้รูปเดียวกับซ้าย (จะถูกเปลี่ยนตาม lastHorizontalDirection)
+            // เดินขึ้นและลงใช้รูปเดียวกับซ้าย
             spriteFrames.put("up", leftFrames);
             spriteFrames.put("down", leftFrames);
             
             // โหลด idle animation
-            String idlePath = "resource/player/wizard/idle/";
             String[] idlePossiblePaths = {
-                idlePath,
-                "SantanaProject/resource/player/wizard/idle/",
-                "../resource/player/wizard/idle/",
-                "./resource/player/wizard/idle/"
+                characterConfig.spritePath + "idle/",
+                "SantanaProject/" + characterConfig.spritePath + "idle/",
+                "../" + characterConfig.spritePath + "idle/",
+                "./" + characterConfig.spritePath + "idle/"
             };
             
             String idleBasePath = null;
@@ -117,13 +128,16 @@ public class Player extends Entity {
             }
             
             if (idleBasePath != null) {
-                // โหลด idle ซ้าย
-                BufferedImage[] idleLefts = new BufferedImage[GameConfig.IDLE_FRAMES];
-                for (int i = 0; i < GameConfig.IDLE_FRAMES; i++) {
+                // โหลด idle ซ้าย ตามจำนวนใน config
+                BufferedImage[] idleLefts = new BufferedImage[characterConfig.idleFrames];
+                for (int i = 0; i < characterConfig.idleFrames; i++) {
                     String filePath = idleBasePath + "Idle_left_" + i + ".png";
                     File file = new File(filePath);
+                    if (!file.exists()) {
+                        filePath = idleBasePath + "Idle_left_" + i + ".PNG";
+                    }
                     if (file.exists()) {
-                        idleLefts[i] = ImageIO.read(file);
+                        idleLefts[i] = ImageIO.read(new File(filePath));
                     } else {
                         idleLefts[i] = leftFrames[0]; // Fallback
                     }
@@ -131,12 +145,15 @@ public class Player extends Entity {
                 idleFrames.put("idle_left", idleLefts);
                 
                 // โหลด idle ขวา
-                BufferedImage[] idleRights = new BufferedImage[GameConfig.IDLE_FRAMES];
-                for (int i = 0; i < GameConfig.IDLE_FRAMES; i++) {
+                BufferedImage[] idleRights = new BufferedImage[characterConfig.idleFrames];
+                for (int i = 0; i < characterConfig.idleFrames; i++) {
                     String filePath = idleBasePath + "Idle_right_" + i + ".png";
                     File file = new File(filePath);
+                    if (!file.exists()) {
+                        filePath = idleBasePath + "Idle_right_" + i + ".PNG";
+                    }
                     if (file.exists()) {
-                        idleRights[i] = ImageIO.read(file);
+                        idleRights[i] = ImageIO.read(new File(filePath));
                     } else {
                         idleRights[i] = rightFrames[0]; // Fallback
                     }
@@ -301,21 +318,19 @@ public class Player extends Entity {
         
         // เลือกประเภท animation
         BufferedImage[] frames;
-        double scale = GameConfig.CHARACTER_SCALE; // default scale
         
         if (!moving) {
             // ยืนนิ่ง - ใช้ idle animation ตามทิศทาง (วิ่ง slow)
             int idleFrameDuration = FRAME_DURATION * 2; // idle ช้า 2 เท่า
-            currentFrame = (animationFrameCounter / idleFrameDuration) % GameConfig.IDLE_FRAMES;
+            currentFrame = (animationFrameCounter / idleFrameDuration) % characterConfig.idleFrames;
             if (lastHorizontalDirection.equals("left")) {
                 frames = idleFrames.get("idle_left");
             } else {
                 frames = idleFrames.get("idle_right");
             }
-            scale = GameConfig.CHARACTER_SCALE * GameConfig.IDLE_SCALE_MULTIPLIER;
         } else {
             // เดิน - animation เร็ว
-            currentFrame = (animationFrameCounter / FRAME_DURATION) % FRAMES_PER_DIRECTION;
+            currentFrame = (animationFrameCounter / FRAME_DURATION) % characterConfig.runFrames;
             if (direction.equals("up") || direction.equals("down")) {
                 // เดินขึ้น/ลง - ใช้รูปตาม lastHorizontalDirection
                 frames = spriteFrames.get(lastHorizontalDirection);
@@ -327,8 +342,8 @@ public class Player extends Entity {
         
         if (frames != null && frames[currentFrame] != null) {
             // วาดรูปภาพ sprite - bottom align ให้เท่ากันเสมอ
-            int runScaledSize = (int) (gp.tileSize * GameConfig.CHARACTER_SCALE);
-            int idleScaledSize = (int) (gp.tileSize * GameConfig.CHARACTER_SCALE * GameConfig.IDLE_SCALE_MULTIPLIER);
+            int runScaledSize = (int) (gp.tileSize * characterConfig.runScale);
+            int idleScaledSize = (int) (gp.tileSize * characterConfig.runScale * characterConfig.idleScaleMultiplier);
             
             int scaledSize = moving ? runScaledSize : idleScaledSize;
             int offsetX = (gp.tileSize - scaledSize) / 2;
