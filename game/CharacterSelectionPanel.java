@@ -7,12 +7,14 @@ import javax.swing.*;
 
 public class CharacterSelectionPanel extends JPanel {
     
-    private GamePanel gamePanel;
+    private final GamePanel gamePanel;
     private CharacterConfig selectedCharacter = null;
     private Rectangle wizardRect;
+    private Rectangle rogueRect;
     private Rectangle knightRect;
     private Rectangle startButtonRect;
     private boolean wizardHover = false;
+    private boolean rogueHover = false;
     private boolean knightHover = false;
     private boolean startHover = false;
     
@@ -48,16 +50,17 @@ public class CharacterSelectionPanel extends JPanel {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         
         int width = getWidth();
-        int height = getHeight();
         
-        // คำนวณตำแหน่ง button
+        // คำนวณตำแหน่ง button (สามตัว: Wizard, Rogue, Knight)
         int buttonWidth = 150;
         int buttonHeight = 150;
-        int wizardX = width / 4 - buttonWidth / 2;
-        int knightX = 3 * width / 4 - buttonWidth / 2;
+        int wizardX = width / 6 - buttonWidth / 2;
+        int rogueX = width / 2 - buttonWidth / 2;
+        int knightX = 5 * width / 6 - buttonWidth / 2;
         int buttonY = 150;
-        
+
         wizardRect = new Rectangle(wizardX, buttonY, buttonWidth, buttonHeight);
+        rogueRect = new Rectangle(rogueX, buttonY, buttonWidth, buttonHeight);
         knightRect = new Rectangle(knightX, buttonY, buttonWidth, buttonHeight);
         
         // Title
@@ -70,6 +73,9 @@ public class CharacterSelectionPanel extends JPanel {
         
         // วาด Wizard button
         drawCharacterButton(g2, wizardRect, "Wizard", wizardHover, selectedCharacter == CharacterConfig.WIZARD);
+
+        // วาด Rogue button
+        drawCharacterButton(g2, rogueRect, "Rogue", rogueHover, selectedCharacter == CharacterConfig.ROGUE);
         
         // วาด Knight button
         drawCharacterButton(g2, knightRect, "Knight", knightHover, selectedCharacter == CharacterConfig.KNIGHT);
@@ -139,24 +145,35 @@ public class CharacterSelectionPanel extends JPanel {
         if (wizardRect != null && wizardRect.contains(x, y)) {
             selectedCharacter = CharacterConfig.WIZARD;
             repaint();
+        } else if (rogueRect != null && rogueRect.contains(x, y)) {
+            selectedCharacter = CharacterConfig.ROGUE;
+            repaint();
         } else if (knightRect != null && knightRect.contains(x, y)) {
             selectedCharacter = CharacterConfig.KNIGHT;
             repaint();
         } else if (startButtonRect != null && startButtonRect.contains(x, y) && selectedCharacter != null) {
+            // Close the selection window (if any) before starting the main game window
+            java.awt.Window w = SwingUtilities.getWindowAncestor(this);
+            if (w != null) {
+                w.setVisible(false);
+                w.dispose();
+            }
             gamePanel.startGameWithCharacter(selectedCharacter);
         }
     }
     
     private void handleMouseMove(int x, int y) {
         boolean oldWizardHover = wizardHover;
+        boolean oldRogueHover = rogueHover;
         boolean oldKnightHover = knightHover;
         boolean oldStartHover = startHover;
         
         wizardHover = wizardRect != null && wizardRect.contains(x, y);
+        rogueHover = rogueRect != null && rogueRect.contains(x, y);
         knightHover = knightRect != null && knightRect.contains(x, y);
         startHover = startButtonRect != null && startButtonRect.contains(x, y) && selectedCharacter != null;
         
-        if (oldWizardHover != wizardHover || oldKnightHover != knightHover || oldStartHover != startHover) {
+        if (oldWizardHover != wizardHover || oldRogueHover != rogueHover || oldKnightHover != knightHover || oldStartHover != startHover) {
             repaint();
         }
     }

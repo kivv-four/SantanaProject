@@ -6,7 +6,7 @@ import java.awt.event.KeyListener;
 /** รับ input คีย์บอร์ด (WASD เดิน, J โจมตี, R restart) และเก็บ lastKey สำหรับ priority การเดิน */
 public class KeyHandler implements KeyListener {
 
-    public boolean upPressed, downPressed, leftPressed, rightPressed, attackPressed, restartPressed;
+    public boolean upPressed, downPressed, leftPressed, rightPressed, attackPressed, restartPressed, pausePressed, exitPressed;
     public String lastKey = "";
 
     @Override
@@ -21,6 +21,8 @@ public class KeyHandler implements KeyListener {
         if (code == KeyEvent.VK_D) { rightPressed = true; lastKey = "right"; }
         if (code == KeyEvent.VK_J) attackPressed = true;
         if (code == KeyEvent.VK_R) restartPressed = true;
+        if (code == KeyEvent.VK_ESCAPE) pausePressed = true;
+        if (code == KeyEvent.VK_Q) exitPressed = true;
     }
 
     @Override
@@ -32,5 +34,7 @@ public class KeyHandler implements KeyListener {
         if (code == KeyEvent.VK_D) rightPressed = false;
         if (code == KeyEvent.VK_J) attackPressed = false;
         if (code == KeyEvent.VK_R) restartPressed = false;
+        if (code == KeyEvent.VK_ESCAPE) pausePressed = false;
+        if (code == KeyEvent.VK_Q) exitPressed = false;
     }
 }

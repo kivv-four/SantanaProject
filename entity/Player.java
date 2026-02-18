@@ -27,9 +27,13 @@ public class Player extends Entity {
     // Animation sprites
     private final Map<String, BufferedImage[]> spriteFrames = new HashMap<>();
     private final Map<String, BufferedImage[]> idleFrames = new HashMap<>();
+    private final Map<String, BufferedImage[]> deathFrames = new HashMap<>();
     private int animationFrameCounter = 0;
     private final int FRAME_DURATION = 10; // 10 game frames ต่อ 1 sprite frame
     private CharacterConfig characterConfig;
+    private boolean dying = false;
+    public boolean deathFinished = false;
+    private int finalDeathFrameIndex = 0; // Store final frame index so it stays visible
 
     public Player(GamePanel gp, KeyHandler keyH) {
         this(gp, keyH, CharacterConfig.WIZARD);
@@ -49,6 +53,9 @@ public class Player extends Entity {
         solidAreaDefaultY = solidArea.y;
         maxLife = config.maxLife;
         life = maxLife;
+        dying = false;
+        deathFinished = false;
+        finalDeathFrameIndex = 0;
         loadSprites();
     }
     
@@ -83,27 +90,23 @@ public class Player extends Entity {
             
             System.out.println("พบรูปภาพของ " + characterConfig.name + " ที่: " + basePath);
             
-            // โหลด run frames ตามจำนวนใน config
+            // โหลด run frames ตามจำนวนใน config (ตรวจสอบ .png/.PNG)
             BufferedImage[] leftFrames = new BufferedImage[characterConfig.runFrames];
             for (int i = 0; i < characterConfig.runFrames; i++) {
-                String filePath = basePath + "run_left_" + i + ".png";
-                File file = new File(filePath);
-                if (!file.exists()) {
-                    filePath = basePath + "run_left_" + i + ".PNG";
-                }
-                leftFrames[i] = ImageIO.read(new File(filePath));
+                File f = new File(basePath + "run_left_" + i + ".png");
+                if (!f.exists()) f = new File(basePath + "run_left_" + i + ".PNG");
+                if (!f.exists()) throw new java.io.FileNotFoundException("Missing run_left: " + f.getPath());
+                leftFrames[i] = ImageIO.read(f);
             }
             spriteFrames.put("left", leftFrames);
-            
+
             // โหลด run frames ขวา
             BufferedImage[] rightFrames = new BufferedImage[characterConfig.runFrames];
             for (int i = 0; i < characterConfig.runFrames; i++) {
-                String filePath = basePath + "run_right_" + i + ".png";
-                File file = new File(filePath);
-                if (!file.exists()) {
-                    filePath = basePath + "run_right_" + i + ".PNG";
-                }
-                rightFrames[i] = ImageIO.read(new File(filePath));
+                File f = new File(basePath + "run_right_" + i + ".png");
+                if (!f.exists()) f = new File(basePath + "run_right_" + i + ".PNG");
+                if (!f.exists()) throw new java.io.FileNotFoundException("Missing run_right: " + f.getPath());
+                rightFrames[i] = ImageIO.read(f);
             }
             spriteFrames.put("right", rightFrames);
             
@@ -131,29 +134,23 @@ public class Player extends Entity {
                 // โหลด idle ซ้าย ตามจำนวนใน config
                 BufferedImage[] idleLefts = new BufferedImage[characterConfig.idleFrames];
                 for (int i = 0; i < characterConfig.idleFrames; i++) {
-                    String filePath = idleBasePath + "Idle_left_" + i + ".png";
-                    File file = new File(filePath);
-                    if (!file.exists()) {
-                        filePath = idleBasePath + "Idle_left_" + i + ".PNG";
-                    }
-                    if (file.exists()) {
-                        idleLefts[i] = ImageIO.read(new File(filePath));
+                    File f = new File(idleBasePath + "Idle_left_" + i + ".png");
+                    if (!f.exists()) f = new File(idleBasePath + "Idle_left_" + i + ".PNG");
+                    if (f.exists()) {
+                        idleLefts[i] = ImageIO.read(f);
                     } else {
                         idleLefts[i] = leftFrames[0]; // Fallback
                     }
                 }
                 idleFrames.put("idle_left", idleLefts);
-                
+
                 // โหลด idle ขวา
                 BufferedImage[] idleRights = new BufferedImage[characterConfig.idleFrames];
                 for (int i = 0; i < characterConfig.idleFrames; i++) {
-                    String filePath = idleBasePath + "Idle_right_" + i + ".png";
-                    File file = new File(filePath);
-                    if (!file.exists()) {
-                        filePath = idleBasePath + "Idle_right_" + i + ".PNG";
-                    }
-                    if (file.exists()) {
-                        idleRights[i] = ImageIO.read(new File(filePath));
+                    File f = new File(idleBasePath + "Idle_right_" + i + ".png");
+                    if (!f.exists()) f = new File(idleBasePath + "Idle_right_" + i + ".PNG");
+                    if (f.exists()) {
+                        idleRights[i] = ImageIO.read(f);
                     } else {
                         idleRights[i] = rightFrames[0]; // Fallback
                     }
@@ -166,11 +163,66 @@ public class Player extends Entity {
                 idleFrames.put("idle_left", leftFrames);
                 idleFrames.put("idle_right", rightFrames);
             }
+
+            // โหลด death animation ถ้ามี
+            String[] deathPossiblePaths = {
+                characterConfig.spritePath + "death/",
+                "SantanaProject/" + characterConfig.spritePath + "death/",
+                "../" + characterConfig.spritePath + "death/",
+                "./" + characterConfig.spritePath + "death/"
+            };
+            String deathBasePath = null;
+            for (String path : deathPossiblePaths) {
+                if (new File(path + "death_left_0.png").exists() || new File(path + "death_left_0.PNG").exists()
+                    || new File(path + "death_0.png").exists() || new File(path + "death_0.PNG").exists()) {
+                    deathBasePath = path;
+                    break;
+                }
+            }
+
+            if (deathBasePath != null) {
+                System.out.println("พบ death animation ที่: " + deathBasePath);
+                // ถ้ามี death_left_* แบบแยกซ้าย/ขวา
+                File testLeft = new File(deathBasePath + "death_left_0.png");
+                if (!testLeft.exists()) testLeft = new File(deathBasePath + "death_left_0.PNG");
+                if (testLeft.exists()) {
+                    BufferedImage[] dLeft = new BufferedImage[characterConfig.deathFrames];
+                    BufferedImage[] dRight = new BufferedImage[characterConfig.deathFrames];
+                    for (int i = 0; i < characterConfig.deathFrames; i++) {
+                        File f1 = new File(deathBasePath + "death_left_" + i + ".png");
+                        if (!f1.exists()) f1 = new File(deathBasePath + "death_left_" + i + ".PNG");
+                        if (f1.exists()) dLeft[i] = ImageIO.read(f1);
+                        else dLeft[i] = leftFrames[0];
+
+                        File f2 = new File(deathBasePath + "death_right_" + i + ".png");
+                        if (!f2.exists()) f2 = new File(deathBasePath + "death_right_" + i + ".PNG");
+                        if (!f2.exists()) f2 = new File(deathBasePath + "death_rigth_" + i + ".png"); // Fallback for typo-named files (Rogue)
+                        if (!f2.exists()) f2 = new File(deathBasePath + "death_rigth_" + i + ".PNG");
+                        if (f2.exists()) dRight[i] = ImageIO.read(f2);
+                        else dRight[i] = rightFrames[0];
+                    }
+                    deathFrames.put("death_left", dLeft);
+                    deathFrames.put("death_right", dRight);
+                } else {
+                    // ถ้าเป็น single death_0.png .. death_N.png
+                    BufferedImage[] d = new BufferedImage[characterConfig.deathFrames];
+                    for (int i = 0; i < characterConfig.deathFrames; i++) {
+                        File f = new File(deathBasePath + "death_" + i + ".png");
+                        if (!f.exists()) f = new File(deathBasePath + "death_" + i + ".PNG");
+                        if (f.exists()) d[i] = ImageIO.read(f);
+                        else d[i] = leftFrames[0];
+                    }
+                    deathFrames.put("death_left", d);
+                    deathFrames.put("death_right", d);
+                }
+                System.out.println("โหลด death animation สำเร็จ!");
+            } else {
+                System.out.println("ไม่พบ death animation สำหรับ " + characterConfig.name);
+            }
             
             System.out.println("โหลดรูปภาพสำเร็จ!");
         } catch (Exception e) {
-            System.err.println("ผิดพลาดในการโหลดรูปภาพ: " + e.getMessage());
-            e.printStackTrace();
+            throw new IllegalStateException("ผิดพลาดในการโหลดรูปภาพสำหรับตัวละคร: " + characterConfig.name, e);
         }
     }
 
@@ -191,7 +243,32 @@ public class Player extends Entity {
 
     @Override
     public void update() {
-        if (life <= 0) return;
+        if (life <= 0) {
+            if (!dying) {
+                dying = true;
+                animationFrameCounter = 0;
+                finalDeathFrameIndex = 0;
+                attacking = false;
+                moving = false;
+                System.out.println("[Player] dying started for " + characterConfig.name + ", deathFrames=" + characterConfig.deathFrames);
+            } else if (!deathFinished) {
+                // advance death animation (only if not finished yet)
+                int df = Math.max(1, characterConfig.deathFrames);
+                animationFrameCounter++;
+                int currentIdx = animationFrameCounter / FRAME_DURATION;
+                System.out.println("[Player] death frame counter=" + animationFrameCounter + " idx=" + currentIdx + "/" + df);
+                if (currentIdx >= df) {
+                    finalDeathFrameIndex = df - 1; // Store last frame index
+                    deathFinished = true;
+                    alive = false;
+                    System.out.println("[Player] death animation finished! final frame idx=" + finalDeathFrameIndex);
+                } else {
+                    finalDeathFrameIndex = currentIdx; // Update final frame as we go
+                }
+            }
+            // Once deathFinished, we display finalDeathFrameIndex
+            return;
+        }
 
         if (keyH.attackPressed && !attacking) {
             attacking = true;
@@ -319,6 +396,31 @@ public class Player extends Entity {
         // เลือกประเภท animation
         BufferedImage[] frames;
         
+        if (dying) {
+            // แสดง death animation - ใช้ finalDeathFrameIndex เพื่อแช่ frame สุดท้าย
+            int df = Math.max(1, characterConfig.deathFrames);
+            int currentFrameDeath = deathFinished ? finalDeathFrameIndex : (animationFrameCounter / FRAME_DURATION) % df;
+            BufferedImage[] dFrames = lastHorizontalDirection.equals("left") ? deathFrames.get("death_left") : deathFrames.get("death_right");
+            System.out.println("[Player] drawing death: dying=" + dying + " finished=" + deathFinished + " frame=" + currentFrameDeath + " dFrames=" + (dFrames != null ? "loaded" : "NULL"));
+            if (dFrames != null && currentFrameDeath < dFrames.length && dFrames[currentFrameDeath] != null) {
+                BufferedImage img = dFrames[currentFrameDeath];
+                System.out.println("[Player] drawing death frame " + currentFrameDeath + " for " + characterConfig.name);
+                int runScaledSize = (int) (gp.tileSize * characterConfig.runScale);
+                int idleScaledSize = (int) (gp.tileSize * characterConfig.runScale * characterConfig.idleScaleMultiplier);
+                // Use the same target height as normal rendering (idle vs run)
+                int targetHeight = moving ? runScaledSize : idleScaledSize;
+                int origW = img.getWidth();
+                int origH = img.getHeight();
+                double scaleFactor = (double) targetHeight / (double) origH;
+                int drawW = (int) Math.round(origW * scaleFactor);
+                int drawH = targetHeight;
+                int offsetX = (gp.tileSize - drawW) / 2;
+                int baseY = screenY + (gp.tileSize - runScaledSize) / 2 + runScaledSize;
+                int drawY = baseY - drawH;
+                g2.drawImage(img, screenX + offsetX, drawY, drawW, drawH, null);
+            }
+            return;
+        }
         if (!moving) {
             // ยืนนิ่ง - ใช้ idle animation ตามทิศทาง (วิ่ง slow)
             int idleFrameDuration = FRAME_DURATION * 2; // idle ช้า 2 เท่า
@@ -344,16 +446,23 @@ public class Player extends Entity {
             // วาดรูปภาพ sprite - bottom align ให้เท่ากันเสมอ
             int runScaledSize = (int) (gp.tileSize * characterConfig.runScale);
             int idleScaledSize = (int) (gp.tileSize * characterConfig.runScale * characterConfig.idleScaleMultiplier);
-            
-            int scaledSize = moving ? runScaledSize : idleScaledSize;
-            int offsetX = (gp.tileSize - scaledSize) / 2;
-            
+
+            int targetHeight = moving ? runScaledSize : idleScaledSize;
+
+            // Preserve aspect ratio: scale image height to targetHeight and compute width accordingly
+            BufferedImage img = frames[currentFrame];
+            int origW = img.getWidth();
+            int origH = img.getHeight();
+            double scaleFactor = (double) targetHeight / (double) origH;
+            int drawW = (int) Math.round(origW * scaleFactor);
+            int drawH = targetHeight;
+
+            int offsetX = (gp.tileSize - drawW) / 2;
             // Calculate base Y (bottom align point) - ใช้ run size เป็นอ้างอิง
             int baseY = screenY + (gp.tileSize - runScaledSize) / 2 + runScaledSize;
-            // Draw Y = base - ความสูงของ sprite ที่จะวาด
-            int drawY = baseY - scaledSize + bobY;
-            
-            g2.drawImage(frames[currentFrame], screenX + offsetX, drawY, scaledSize, scaledSize, null);
+            int drawY = baseY - drawH + bobY;
+
+            g2.drawImage(img, screenX + offsetX, drawY, drawW, drawH, null);
         } else {
             // Fallback: วาดเป็นสี่เหลี่ยมถ้าโหลดรูปไม่ได้
             g2.setColor(Color.CYAN);
@@ -364,16 +473,7 @@ public class Player extends Entity {
             if (direction.equals("right") || direction.equals("down")) g2.fillRect(screenX + 30, screenY + 10 + bobY, 6, 6);
             if (direction.equals("left") || direction.equals("down")) g2.fillRect(screenX + 10, screenY + 10 + bobY, 6, 6);
         }
-        
-        // DEBUG: วาด hitbox
-        g2.setColor(new Color(0, 255, 0, 100)); // สีเขียวโปร่งใส
-        int hitboxScreenX = screenX + solidArea.x;
-        int hitboxScreenY = screenY + solidArea.y + bobY;
-        g2.fillRect(hitboxScreenX, hitboxScreenY, solidArea.width, solidArea.height);
-        g2.setColor(Color.GREEN);
-        g2.setStroke(new BasicStroke(2));
-        g2.drawRect(hitboxScreenX, hitboxScreenY, solidArea.width, solidArea.height);
-        
+
         if (attacking) drawSword(g2, bobY);
     }
 

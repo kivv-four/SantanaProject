@@ -10,7 +10,7 @@ import java.util.Random;
 public class GreenSlime extends Entity {
 
     private int actionLockCounter = 0;
-    private double animOffset;
+    private final double animOffset;
 
     public GreenSlime(GamePanel gp) {
         super(gp);
@@ -51,6 +51,14 @@ public class GreenSlime extends Entity {
                 case "right" -> worldX += speed;
             }
         }
+
+        // บังคับไม่ให้มอนสเตอร์ออกนอกขอบแมพ (เหมือน player)
+        if (worldY < 0) worldY = 0;
+        if (worldX < 0) worldX = 0;
+        int maxX = (gp.maxWorldCol * gp.tileSize) - gp.tileSize;
+        int maxY = (gp.maxWorldRow * gp.tileSize) - gp.tileSize;
+        if (worldX > maxX) worldX = maxX;
+        if (worldY > maxY) worldY = maxY;
         Rectangle monsterRect = new Rectangle(worldX + solidArea.x, worldY + solidArea.y, solidArea.width, solidArea.height);
         Rectangle playerRect = new Rectangle(gp.player.worldX + gp.player.solidArea.x, gp.player.worldY + gp.player.solidArea.y, gp.player.solidArea.width, gp.player.solidArea.height);
         if (monsterRect.intersects(playerRect) && !gp.player.invincible) {

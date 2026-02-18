@@ -9,13 +9,14 @@ public class CharacterConfig {
     public final double idleScaleMultiplier;
     public final int idleFrames;
     public final int runFrames;
+    public final int deathFrames;
     public final Rectangle solidArea;
     public final int maxLife;
     public final int speed;
     public final int strength;
     
     public CharacterConfig(String name, String spritePath, double runScale, double idleScaleMultiplier,
-                          int idleFrames, int runFrames, Rectangle solidArea,
+                          int idleFrames, int runFrames, int deathFrames, Rectangle solidArea,
                           int maxLife, int speed, int strength) {
         this.name = name;
         this.spritePath = spritePath;
@@ -23,6 +24,7 @@ public class CharacterConfig {
         this.idleScaleMultiplier = idleScaleMultiplier;
         this.idleFrames = idleFrames;
         this.runFrames = runFrames;
+        this.deathFrames = deathFrames;
         this.solidArea = solidArea;
         this.maxLife = maxLife;
         this.speed = speed;
@@ -37,6 +39,7 @@ public class CharacterConfig {
         0.5,           // idleScaleMultiplier
         4,             // idleFrames
         6,             // runFrames
+        6,             // deathFrames
         new Rectangle(7, 22, 34, 43),  // solidArea
         100,           // maxLife
         5,             // speed
@@ -51,6 +54,22 @@ public class CharacterConfig {
         0.5,           // idleScaleMultiplier
         4,             // idleFrames
         6,             // runFrames
+        6,             // deathFrames
+        new Rectangle(7, 22, 34, 43),  // solidArea (เหมือน wizard)
+        100,           // maxLife
+        5,             // speed
+        5              // strength
+    );
+
+    // ตัวละครแบบ Rogue
+    public static final CharacterConfig ROGUE = new CharacterConfig(
+        "Rogue",
+        "resource/player/rogue/",
+        1.7,           // runScale
+        0.5,           // idleScaleMultiplier
+        4,             // idleFrames
+        6,             // runFrames
+        6,             // deathFrames
         new Rectangle(7, 22, 34, 43),  // solidArea (เหมือน wizard)
         100,           // maxLife
         5,             // speed

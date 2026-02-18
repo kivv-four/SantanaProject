@@ -29,6 +29,7 @@ public class GamePanel extends JPanel implements Runnable {
     private static final int FPS = GameConfig.FPS;
     public long gameFrame = 0;
     public boolean gameOver = false;
+    public boolean paused = false;
 
     // Systems
     public TileManager tileM = new TileManager(this);
@@ -76,7 +77,27 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    /** รีเซ็ตผู้เล่น แมพ มอนสเตอร์ เอฟเฟกต์ และสถานะเกม; ใช้เมื่อกด R ตอน Game Over */
+    /** กลับไปยังเมนูหลัก (ปิด game window และสร้าง main menu ใหม่) */
+    public void returnToMainMenu() {
+        System.out.println("[GamePanel] Returning to main menu");
+        if (gameWindow != null) {
+            gameWindow.dispose();
+            gameWindow = null;
+        }
+        gameStarted = false;
+        gameOver = false;
+        paused = false;
+        gameFrame = 0;
+        if (gameThread != null) {
+            gameThread = null;
+        }
+        // Create and show main menu
+        SwingUtilities.invokeLater(() -> new MainMenuWindow(this));
+    }
+    
+    public void setGameWindow(JFrame window) {
+        this.gameWindow = window;
+    }
     public void resetGame() {
         player = new Player(this, keyH, selectedCharacterConfig);
         monsters.clear();
@@ -106,6 +127,8 @@ public class GamePanel extends JPanel implements Runnable {
         gameWindow.pack();
         gameWindow.setLocationRelativeTo(null);
         gameWindow.setVisible(true);
+        // Ensure the game panel has keyboard focus for input
+        this.requestFocusInWindow();
         
         // เริ่มเกม
         startGameThread();
@@ -136,15 +159,36 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    /** อัปเดตหนึ่งเฟรม: ถ้า Game Over รอ R; ไม่เช่นนั้นอัปเดตผู้เล่น มอนสเตอร์ เอฟเฟกต์ และสปอawn ถ้าหมด */
+    /** อัปเดตหนึ่งเฟรม: ถ้า Game Over รอ R; ถ้า Paused ให้รอ Space หรือ ESC; ไม่เช่นนั้นอัปเดตผู้เล่น มอนสเตอร์ เอฟเฟกต์ และสปอawn ถ้าหมด */
     public void update() {
+        // Handle pause toggle
+        if (keyH.pausePressed && !gameOver) {
+            paused = !paused;
+            keyH.pausePressed = false; // Consume key
+            System.out.println("[GamePanel] Pause toggled: " + paused);
+        }
+        
+        // Handle exit from pause
+        if (paused && keyH.exitPressed) {
+            keyH.exitPressed = false;
+            System.out.println("[GamePanel] Exiting to main menu from pause");
+            returnToMainMenu();
+        }
+        
         if (gameOver) {
             if (keyH.restartPressed) resetGame();
             return;
         }
+        
+        if (paused) {
+            return; // Game is paused, skip update
+        }
+        
         gameFrame++;
         player.update();
-        if (player.life <= 0) gameOver = true;
+        if (player.life <= 0) {
+            if (player.deathFinished) gameOver = true;
+        }
         updateEntities(monsters);
         updateParticles();
         updateFloatingTexts();
@@ -214,6 +258,18 @@ public class GamePanel extends JPanel implements Runnable {
             g2.setColor(new Color(255, 255, 0, Math.min(255, player.leveledUpCounter * 5)));
             g2.drawString("LEVEL UP!", screenWidth / 2 - 100, screenHeight / 2 - 50);
             player.leveledUpCounter--;
+        }
+
+        if (paused) {
+            g2.setColor(new Color(0, 0, 0, 180));
+            g2.fillRect(0, 0, screenWidth, screenHeight);
+            g2.setFont(new Font("Arial", Font.BOLD, 60));
+            g2.setColor(new Color(255, 200, 0));
+            g2.drawString("PAUSED", screenWidth / 2 - 130, screenHeight / 2 - 50);
+            g2.setFont(new Font("Arial", Font.BOLD, 25));
+            g2.setColor(Color.WHITE);
+            g2.drawString("Press ESC to Resume", screenWidth / 2 - 120, screenHeight / 2 + 20);
+            g2.drawString("Press Q to Exit", screenWidth / 2 - 80, screenHeight / 2 + 70);
         }
 
         if (gameOver) {
